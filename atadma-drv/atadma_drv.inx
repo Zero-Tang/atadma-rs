@@ -1,0 +1,58 @@
+;===================================================================
+; Copyright (c) 2024, Zero Tang
+;
+;Module Name:
+;    atadma-drv.inf
+;===================================================================
+
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = SoftwareDevice
+ClassGuid   = {62f9c741-b25a-46ce-b54c-9bccce08b6f2}
+Provider    = %ProviderString%
+PnpLockDown = 1
+
+[DestinationDirs]
+DefaultDestDir = 13
+
+[SourceDisksNames]
+1 = %DiskId1%,,,""
+
+[SourceDisksFiles]
+atadma_drv.sys  = 1,,
+
+
+; ================= Install section =================
+
+[Manufacturer]
+%StdMfg%=Standard,NT$ARCH$.10.0...16299
+
+[Standard.NT$ARCH$.10.0...16299]
+%ATADMA.DeviceDesc%=AtaDma_Device, root\atadma_drv
+
+[AtaDma_Device.NT$ARCH$]
+CopyFiles=Drivers_Dir
+
+[Drivers_Dir]
+atadma_drv.sys
+
+; ================= Service installation =================
+[AtaDma_Device.NT$ARCH$.Services]
+AddService = atadma_drv, %SPSVCINST_ASSOCSERVICE%, AtaDma_Service_Inst
+
+[AtaDma_Service_Inst]
+DisplayName    = %ATADMA.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %13%\atadma_drv.sys
+
+; ================= Strings =================
+[Strings]
+SPSVCINST_ASSOCSERVICE = 0x00000002
+ProviderString         = "Zero Tang"
+StdMfg                 = "(Standard system devices)"
+DiskId1                = "atadma DMA attacking device driver"
+ATADMA.DeviceDesc      = "atadma DMA attacking device driver"
+ATADMA.SVCDESC         = "atadma DMA attacking device driver"
+ClassName              = "atadma"
