@@ -3,6 +3,7 @@ use std::env::args;
 use std::ffi::*;
 use std::mem::*;
 
+// For some weird reasons, windows package doesn't have CTL_CODE macro/function.
 macro_rules! CTL_CODE
 {
 	($DeviceType:expr,$Function:expr,$Method:expr,$Access:expr) =>
@@ -34,8 +35,7 @@ fn main()
 	{
 		None =>
 		{
-			println!("Missing command argument!");
-			return;
+			panic!("Missing command argument!");
 		}
 		Some(c)=>
 		{
@@ -51,18 +51,15 @@ fn main()
 			}
 			else if c.eq(&String::from("writephys"))
 			{
-				println!("Physical Write is unimplemented!");
-				return;
+				unimplemented!("Physical Write is unimplemented!");
 			}
 			else if c.eq(&String::from("write"))
 			{
-				println!("Write is unimplemented!");
-				return;
+				unimplemented!("Write is unimplemented!");
 			}
 			else
 			{
-				println!("Unknown command: {}!",c);
-				return;
+				panic!("Unknown command: {}!",c);
 			}
 		}
 	}
@@ -71,8 +68,7 @@ fn main()
 	{
 		None =>
 		{
-			println!("Missing target address!");
-			return;
+			panic!("Missing target address!");
 		}
 		Some(a)=>
 		{
@@ -85,8 +81,7 @@ fn main()
 				}
 				Err(e)=>
 				{
-					println!("Failed to parse address! {}",e);
-					return;
+					panic!("Failed to parse address! {}",e);
 				}
 			}
 		}
@@ -96,8 +91,7 @@ fn main()
 	let mut b_array:[u8;4096]=[0;4096];
 	unsafe
 	{
-		// For some weird reasons, "dwDesiredAccess" is u32 type, so we can't use GENERIC_READ.
-		let hdev:Result<HANDLE>=CreateFileW(w!("\\\\.\\atadma"),0x80000000,FILE_SHARE_READ,None,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,None);
+		let hdev:Result<HANDLE>=CreateFileW(w!("\\\\.\\atadma"),GENERIC_READ.0,FILE_SHARE_READ,None,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL,None);
 		match hdev
 		{
 			Ok(h) =>
@@ -106,8 +100,7 @@ fn main()
 			}
 			Err(e) =>
 			{
-				println!("Failed to open atadma device! {}",e);
-				return;
+				panic!("Failed to open atadma device! {}",e);
 			}
 		}
 	}
@@ -158,7 +151,7 @@ fn main()
 		}
 		Err(e)=>
 		{
-			println!("DeviceIoControl failed! {}",e);
+			panic!("DeviceIoControl failed! {}",e);
 		}
 	}
 }
