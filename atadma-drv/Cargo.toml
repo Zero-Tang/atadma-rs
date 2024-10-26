@@ -3,10 +3,12 @@ name = "atadma-drv"
 version = "0.1.0"
 edition = "2021"
 
+[package.metadata.wdk.driver-model]
+driver-type = "WDM"
+
 [lib]
 crate-type = ["cdylib"]
-
-[package.metadata.wdk]
+test = false
 
 [profile.dev]
 panic = "abort"
@@ -17,10 +19,11 @@ panic = "abort"
 lto = true
 
 [dependencies]
-wdk = "0.2.0"
-wdk-alloc = "0.2.0"
-wdk-panic = "0.2.0"
-wdk-sys = "0.2.0"
+utf16_lit = "2.0.2"
+wdk = "0.3.0"
+wdk-alloc = "0.3.0"
+wdk-panic = "0.3.0"
+wdk-sys = "0.3.0"
 
 [build-dependencies]
-wdk-build = "0.2.0"
+wdk-build = "0.3.0"

@@ -9,9 +9,9 @@ OS: Any Windows with x64 support. This project does not use new kernel APIs so i
 The system must have at least one SATA disk.
 
 ## Build
-**IMPORTANT**: You are required to install the nightly version of Rust toolchain, since [WDK for Rust](https://github.com/microsoft/windows-drivers-rs) is only available as nightly!
+**IMPORTANT**: Since 0.3.0 version of [WDK for Rust](https://github.com/microsoft/windows-drivers-rs), you are no longer required to use nightly toolchain of Rust.
 
-To build the caller program, use the standard way to build a Rust program:
+To build the caller program, just use the standard way to build a Rust program:
 ```
 cargo build
 ```
@@ -19,18 +19,17 @@ cargo build
 To build the driver program, you need the following pre-requisites:
 
 - Mount [EWDK11 with VS Build Tools 17.8.6](https://docs.microsoft.com/en-us/legal/windows/hardware/enterprise-wdk-license-2022) to V: drive.
-- Install [LLVM 17.0.6](https://github.com/llvm/llvm-project/releases/tag/llvmorg-17.0.6). Microsoft says LLVM18 has certain bugs.
-- Install [pefile](https://pypi.org/project/pefile/) pip module. This is required for patching the entry point.
+- Install [LLVM](https://github.com/llvm/llvm-project/releases). This is required to generate WDK-related bindings.
 
-Then start building.
+Then in `atadma-drv` directory, start building.
 ```
-cd atadma-drv
-V:\LaunchBuildEnv.bat
-make
+cargo make
 ```
-If this is your first time building the driver, make sure your console is under Administrator privilege. The `cargo` will have to build the WDK crates for you.
-
-Note that the `atadma_drv_fixed.sys` is the final driver file you will be using.
+If this is your first time building the driver, make sure that your console is under Administrator privilege, and that you have mounted EWDK11. The `cargo` will have to build the WDK crates for you.
+···
+V:\LaunchBuildEnv.cmd
+cargo make
+···
 
 ## Run
 Install the driver in Administrator privilege:

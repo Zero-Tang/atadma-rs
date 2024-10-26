@@ -17,9 +17,7 @@ macro_rules! CTL_CODE {
 
 const IOCTL_DMA_READ:u32 = CTL_CODE!(FILE_DEVICE_UNKNOWN, 0x801, METHOD_BUFFERED, FILE_ANY_ACCESS);
 
-#[repr(C)]
-
-struct DmaRequest
+#[repr(C)] struct DmaRequest
 {
 	destination:u64,
 	source:u64,
@@ -46,13 +44,11 @@ fn main()
 			if c.eq(&String::from("readphys"))
 			{
 				is_phys = true;
-
 				is_read = true;
 			}
 			else if c.eq(&String::from("read"))
 			{
 				is_phys = false;
-
 				is_read = true;
 			}
 			else if c.eq(&String::from("writephys"))
@@ -141,7 +137,7 @@ fn main()
 					for j in 0..16
 					{
 						let c:u8 = b_array[(i + j) as usize];
-						if c >= 0x20 && c <= 0x7f
+						if (0x20..=0x7f).contains(&c)
 						{
 							print!("{}", c as char);
 						}
@@ -150,7 +146,7 @@ fn main()
 							print!(".");
 						}
 					}
-					println!("");
+					println!();
 				}
 			}
 		}

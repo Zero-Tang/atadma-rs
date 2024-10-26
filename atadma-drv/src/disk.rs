@@ -1,7 +1,7 @@
 #[cfg(not(test))] extern crate wdk_panic;
 
-use crate::CTL_CODE;
-use core::ffi::*;
+use crate::{CTL_CODE, RUST_TAG};
+use core::{ffi::*, ptr::null_mut};
 use ntddk::*;
 use wdk::println;
 use wdk_sys::*;
@@ -39,7 +39,7 @@ const ATA_CMD_WRITE_SECTORS:u8 = 0x30;
 const ATA_DEVICE_TRANSPORT_LBA:u8 = 0x40;
 const ATA_SECTOR_SIZE:u32 = 512;
 
-const IOCTL_ATA_PASS_THROUGH_DIRECT:u32 = CTL_CODE!(FILE_DEVICE_CONTROLLER, 0x40C, METHOD_BUFFERED, FILE_READ_ACCESS | FILE_WRITE_ACCESS);
+const IOCTL_ATA_PASS_THROUGH_DIRECT:u32 = CTL_CODE(FILE_DEVICE_CONTROLLER, 0x40C, METHOD_BUFFERED, FILE_READ_ACCESS | FILE_WRITE_ACCESS);
 
 // It seems WDK crate does not export certain undocumented APIs.
 extern "C" {
@@ -50,10 +50,22 @@ extern "C" {
 	pub static mut IoDriverObjectType: *mut POBJECT_TYPE;
 }
 
-pub struct DiskObject
+#[repr(C)] pub struct DiskObject
 {
 	pub backup_data:[u8; 4096],
 	pub device:*mut _DEVICE_OBJECT
+}
+
+impl DiskObject
+{
+	pub fn new()->Self
+	{
+		Self
+		{
+			backup_data:[0;4096],
+			device:null_mut()
+		}
+	}
 }
 
 fn issue_ata_cmd(device:*mut _DEVICE_OBJECT, flags:u16, cmd:u8, buffer:*mut c_void) -> NTSTATUS
@@ -95,7 +107,7 @@ fn issue_ata_cmd(device:*mut _DEVICE_OBJECT, flags:u16, cmd:u8, buffer:*mut c_vo
 		)
 	};
 	// Call the ATA Driver and wait.
-	if irp != core::ptr::null_mut::<IRP>()
+	if irp.is_null()
 	{
 		st = unsafe { IofCallDriver(device, irp) };
 		if st == STATUS_PENDING
@@ -112,7 +124,7 @@ fn issue_ata_cmd(device:*mut _DEVICE_OBJECT, flags:u16, cmd:u8, buffer:*mut c_vo
 			}
 		}
 	}
-	return st;
+	st
 }
 
 fn ata_read_page(device:*mut DEVICE_OBJECT, destination:*mut c_void) -> NTSTATUS
@@ -141,16 +153,16 @@ fn ata_write_page(device:*mut DEVICE_OBJECT, source:*mut c_void) -> NTSTATUS
 */
 pub fn ata_copy_memory(disk_obj:&mut DiskObject, destination:*mut c_void, source:*mut c_void) -> NTSTATUS
 {
-	let mut st:NTSTATUS = ata_write_page((*disk_obj).device, source);
+	let mut st:NTSTATUS = ata_write_page(disk_obj.device, source);
 	// Read from source memory by writing to the disk through DMA.
 	if NT_SUCCESS(st)
 	{
 		// Write to destination memory by reading from the disk through DMA.
-		st = ata_read_page((*disk_obj).device, destination);
+		st = ata_read_page(disk_obj.device, destination);
 		if NT_SUCCESS(st)
 		{
 			// Recover the original disk content.
-			st = ata_write_page((*disk_obj).device, (*disk_obj).backup_data.as_mut_ptr() as *mut c_void);
+			st = ata_write_page(disk_obj.device, disk_obj.backup_data.as_mut_ptr() as *mut c_void);
 			if !NT_SUCCESS(st)
 			{
 				println!("Failed to restore disk content! Status=0x{:08X}", st);
@@ -165,7 +177,7 @@ pub fn ata_copy_memory(disk_obj:&mut DiskObject, destination:*mut c_void, source
 	{
 		println!("Failed to write to disk from source! Status=0x{:08X}", st);
 	}
-	return st;
+	st
 }
 
 fn get_device_list(driver:*mut DRIVER_OBJECT, device_count:&mut u32) -> Result<*mut PDEVICE_OBJECT, NTSTATUS>
@@ -175,14 +187,14 @@ fn get_device_list(driver:*mut DRIVER_OBJECT, device_count:&mut u32) -> Result<*
 	{
 		return Err(st);
 	}
-	let list_size:u32 = (*device_count) * (size_of::<PDEVICE_OBJECT> as u32);
+	let list_size:usize = (*device_count as usize) * size_of::<PDEVICE_OBJECT>();
 	st = STATUS_INSUFFICIENT_RESOURCES;
 	// FIXME: Use idiomatic Rust...
 	unsafe {
-		let device_list:*mut PDEVICE_OBJECT = ExAllocatePool(_POOL_TYPE::NonPagedPool, list_size as u64) as *mut PDEVICE_OBJECT;
-		if device_list != core::ptr::null_mut() as *mut PDEVICE_OBJECT
+		let device_list:*mut PDEVICE_OBJECT = ExAllocatePool2(POOL_FLAG_NON_PAGED, list_size as u64, RUST_TAG) as *mut PDEVICE_OBJECT;
+		if !device_list.is_null()
 		{
-			st = IoEnumerateDeviceObjectList(driver, device_list, list_size, device_count);
+			st = IoEnumerateDeviceObjectList(driver, device_list, list_size as u32, device_count);
 			if !NT_SUCCESS(st)
 			{
 				ExFreePool(device_list as PVOID);
@@ -191,8 +203,7 @@ fn get_device_list(driver:*mut DRIVER_OBJECT, device_count:&mut u32) -> Result<*
 			return Ok(device_list);
 		}
 	}
-	
-	return Err(st);
+	Err(st)
 }
 
 /**
@@ -244,12 +255,12 @@ pub fn find_disk(disk_obj:&mut DiskObject) -> NTSTATUS
 					else
 					{
 						// Try to read a page from the disk.
-						st = ata_read_page(dev_obj, (*disk_obj).backup_data.as_mut_ptr() as *mut c_void);
+						st = ata_read_page(dev_obj, disk_obj.backup_data.as_mut_ptr() as *mut c_void);
 						if NT_SUCCESS(st)
 						{
 							// A successful read means this disk supports ATA and it can perform DMA.
 							disk_obj.device = dev_obj;
-							println!("Device Object 0x{:p} can use DMA! Buffer: 0x{:p}", dev_obj, (*disk_obj).backup_data.as_ptr());
+							println!("Device Object 0x{:p} can use DMA! Buffer: 0x{:p}", dev_obj, disk_obj.backup_data.as_ptr());
 							st = STATUS_SUCCESS;
 							continue;
 						}
@@ -281,5 +292,5 @@ pub fn find_disk(disk_obj:&mut DiskObject) -> NTSTATUS
 			ObfDereferenceObject(disk_drv_obj as PVOID);
 		}
 	}
-	return st;
+	st
 }
